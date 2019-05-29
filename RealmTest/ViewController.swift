@@ -15,16 +15,20 @@ class Person: Object {
     @objc dynamic var age = 0
 }
 
-class ViewController: UIViewController {
+class ViewController: UIViewController, UITableViewDataSource {
+    
     @IBOutlet weak var nameLabel: UITextField!
     @IBOutlet weak var ageLabel: UITextField!
-    @IBOutlet weak var resultTextView: UITextView!
+    @IBOutlet weak var myTableView: UITableView!
     
     var personArray : Results<Person>?
     
     override func viewDidLoad() {
         super.viewDidLoad()
+        myTableView.dataSource = self
         print(NSHomeDirectory())
+        
+        nameLabel.becomeFirstResponder()
         
         // DB에서 값을 불러와야 personArray 사용 가능, 초기에는 nil
         let realm = try! Realm()
@@ -47,24 +51,11 @@ class ViewController: UIViewController {
 
         nameLabel.text = ""
         ageLabel.text = ""
+        //ageLabel.resignFirstResponder()
+        nameLabel.becomeFirstResponder()
         
-    }
-    
-    @IBAction func getValue(_ sender: Any) {
-        // DB에서 값 가져오기
-        let realm = try! Realm()
+        myTableView.reloadData()
         
-        // 현재 상태의 DB에 저장된 값(객체) 가져오기
-        personArray = realm.objects(Person.self).filter("age > 10")
-        print("count = \(personArray!.count)")
-        
-        if personArray!.count == 0 {
-            return
-        } else {
-            for i in personArray! {
-                resultTextView.text = resultTextView.text! + "Name: \(i.name), Age: \(i.age)\n"
-            }
-        }
     }
     
     @IBAction func deleteValue(_ sender: Any) {
@@ -73,8 +64,43 @@ class ViewController: UIViewController {
             //realm.deleteAll()
             realm.delete(personArray!)
         }
-        resultTextView.text = ""
-
+        myTableView.reloadData()
+    }
+    
+    func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
+        return (personArray?.count)!
+    }
+    
+    func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
+        let cell = myTableView.dequeueReusableCell(withIdentifier: "RE", for: indexPath)
+        cell.textLabel?.text = personArray?[indexPath.row].name
+        
+        let myAge = personArray?[indexPath.row].age
+        cell.detailTextLabel?.text = String(myAge!)
+        return cell
+    }
+    
+    func tableView(_ tableView: UITableView, canEditRowAt indexPath: IndexPath) -> Bool {
+        return true
+    }
+    
+    func tableView(_ tableView: UITableView, commit editingStyle: UITableViewCell.EditingStyle, forRowAt indexPath: IndexPath) {
+        if editingStyle == .delete {
+            // Delete the row from the data source
+            // DB의 값 삭제
+            let realm = try! Realm()
+            try! realm.write {
+                realm.delete(personArray![indexPath.row])
+            }
+            // DB의 update 된 값을 읽어 온다
+            personArray = realm.objects(Person.self)
+        
+            // 테이블뷰의 cell을 삭제한다.
+            myTableView.deleteRows(at: [indexPath], with: .fade)
+            self.myTableView.reloadData()
+        } else if editingStyle == .insert {
+            // Create a new instance of the appropriate class, insert it into the array, and add a new row to the table view
+        }
     }
 }
 
